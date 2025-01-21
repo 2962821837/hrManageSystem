@@ -7,8 +7,10 @@
     <div class="right-menu">
       <el-dropdown class="avatar-container" trigger="click">
         <div class="avatar-wrapper">
-          <img :src="avatar+'?imageView2/1/w/80/h/80'" class="user-avatar">
-          <i class="el-icon-caret-bottom" />
+          <img v-if="avatar" :src="avatar" class="user-avatar">
+          <span v-else class="username">{{ name?.charAt(0) }}</span>
+          <span class="name">{{ name }}</span>
+          <i class="el-icon-setting" />
         </div>
         <el-dropdown-menu slot="dropdown" class="user-dropdown">
           <router-link to="/">
@@ -19,15 +21,33 @@
           <a target="_blank" href="https://github.com/PanJiaChen/vue-admin-template/">
             <el-dropdown-item>Github</el-dropdown-item>
           </a>
-          <a target="_blank" href="https://panjiachen.github.io/vue-element-admin-site/#/">
-            <el-dropdown-item>Docs</el-dropdown-item>
+          <a target="_blank" @click.prevent="updatePassword">
+            <el-dropdown-item>修改密码</el-dropdown-item>
           </a>
           <el-dropdown-item divided @click.native="logout">
-            <span style="display:block;">Log Out</span>
+            <span style="display:block;">退出登录</span>
           </el-dropdown-item>
         </el-dropdown-menu>
       </el-dropdown>
     </div>
+    <!-- 弹出层 -->
+    <el-dialog width="500px" title="修改密码" :visible.sync="showDialog" @close="btnCancel">
+      <el-form ref="passForm" label-width="120px" :model="passForm" :rules="rules">
+        <el-form-item label="旧密码" prop="oldPassword">
+          <el-input v-model="passForm.oldPassword" show-password size="small" />
+        </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input v-model="passForm.newPassword" show-password size="small" />
+        </el-form-item>
+        <el-form-item label="重复密码" prop="confirmPassword">
+          <el-input v-model="passForm.confirmPassword" show-password size="small" />
+        </el-form-item>
+        <el-form-item>
+          <el-button size="mini" type="primary" @click="btnOk">确认修改</el-button>
+          <el-button size="mini">取消</el-button>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
@@ -35,16 +55,49 @@
 import { mapGetters } from 'vuex'
 import Breadcrumb from '@/components/Breadcrumb'
 import Hamburger from '@/components/Hamburger'
+import { updatePassword } from '@/api/user'
+// import router from '@/router'
 
 export default {
   components: {
     Breadcrumb,
     Hamburger
   },
+  data() {
+    return {
+      showDialog: false,
+      passForm: {
+        oldPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      },
+      rules: {
+        oldPassword: [{ required: true, message: '旧密码不能为空', trigger: 'blur' }], // 旧密码
+        newPassword: [{ required: true, message: '新密码不能为空', trigger: 'blur' }, {
+          trigger: 'blur',
+          min: 6,
+          max: 16,
+          message: '新密码的长度为6-16位之间'
+        }], // 新密码
+        confirmPassword: [{ required: true, message: '重复密码不能为空', trigger: 'blur' }, {
+          trigger: 'blur',
+          validator: (rule, value, callback) => {
+            // value
+            if (this.passForm.newPassword === value) {
+              callback()
+            } else {
+              callback(new Error('重复密码和新密码输入不一致'))
+            }
+          }
+        }] // 确认密码字段
+      }
+    }
+  },
   computed: {
     ...mapGetters([
       'sidebar',
-      'avatar'
+      'avatar',
+      'name'
     ])
   },
   methods: {
@@ -53,7 +106,24 @@ export default {
     },
     async logout() {
       await this.$store.dispatch('user/logout')
-      this.$router.push(`/login?redirect=${this.$route.fullPath}`)
+      this.$router.push('/login')
+    },
+    updatePassword() {
+      this.showDialog = !this.showDialog
+    },
+    btnOk() {
+      this.$refs.passForm.validate(async isOK => {
+        if (isOK) {
+          await updatePassword(this.passForm)
+          this.$message.success('修改密码成功')
+          this.btnCancel()
+          this.$router.push('/login')
+        }
+      })
+    },
+    btnCancel() {
+      this.$refs.passForm.resetFields()
+      this.showDialog = false
     }
   }
 }
@@ -117,12 +187,33 @@ export default {
       .avatar-wrapper {
         margin-top: 5px;
         position: relative;
+        display: flex;
+        align-items: center;
 
+        .username {
+          width: 30px;
+          height: 30px;
+          text-align: center;
+          line-height: 30px;
+          border-radius: 50%;
+          background: #04c9be;
+          color: #fff;
+          margin-right: 4px;
+        }
+
+        .name {
+          //  用户名称距离右侧距离
+          margin-right: 10px;
+          font-size: 16px;
+        }
+        .el-icon-setting {
+          font-size: 20px;
+        }
         .user-avatar {
           cursor: pointer;
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
         }
 
         .el-icon-caret-bottom {
